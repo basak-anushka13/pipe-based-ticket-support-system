@@ -25,6 +25,8 @@ def main() -> int:
         "/stats",
         "/process",
         "/queue",
+        "/process",
+        "/process",
         "/list",
         "/stats",
         "/quit",

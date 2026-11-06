@@ -36,7 +36,7 @@ integration: ticket_system
 	$(PYTHON) tests/integration_test.py ./ticket_system
 
 # Optional C++ integration tests. Install GoogleTest (libgtest-dev on Debian/Ubuntu).
-gtest: ticket_system
+gtest: ticket_system | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) tests/test_gtest.cpp -o $(BUILD_DIR)/test_gtest -lgtest -lgtest_main -pthread
 	TICKET_SYSTEM_BIN=./ticket_system ./$(BUILD_DIR)/test_gtest
 
@@ -62,7 +62,7 @@ coverage: | $(COVERAGE_DIR)
 	$(CC) $(CFLAGS) --coverage -O0 -o $(COVERAGE_DIR)/test_ticket tests/test_ticket.c
 	./$(COVERAGE_DIR)/test_ticket
 	$(PYTHON) tests/integration_test.py ./$(COVERAGE_DIR)/ticket_system
-	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'main\\.c$$' \
+	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'main[.]c$$' \
 		--fail-under-line 95 --fail-under-branch 95 --fail-under-function 95
 
 $(COVERAGE_DIR):
