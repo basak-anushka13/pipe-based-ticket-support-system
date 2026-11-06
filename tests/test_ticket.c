@@ -1,5 +1,8 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define main ticket_system_program_main
 #include "../main.c"
@@ -66,10 +69,29 @@ static void test_commands_and_ticket_workflow(void)
     CHECK(strstr(out, "Unknown command") != NULL);
 }
 
+static void test_log_permission_preservation(void)
+{
+    const char *log_path = LOG_FILE;
+    (void)unlink(log_path);
+    int fd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+    CHECK(fd >= 0);
+    CHECK(fchmod(fd, 0640) == 0);
+    if (fd >= 0) close(fd);
+
+    Ticket ticket = { .id = 99, .priority = 2, .customer = "Perm", .issue = "check", .status = "Queued" };
+    log_event(&ticket, "permission-preservation check");
+
+    struct stat info;
+    CHECK(stat(log_path, &info) == 0);
+    CHECK((info.st_mode & 0777) == 0640);
+    (void)unlink(log_path);
+}
+
 int main(void)
 {
     test_queue_fifo_and_capacity();
     test_commands_and_ticket_workflow();
+    test_log_permission_preservation();
     if (failures != 0) {
         (void)fprintf(stderr, "%d unit check(s) failed\n", failures);
         return 1;
@@ -77,3 +99,4 @@ int main(void)
     (void)puts("Native C unit tests passed.");
     return 0;
 }
+

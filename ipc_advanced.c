@@ -39,7 +39,6 @@ static void log_chat_message(const char *channel, const char *direction, const c
         perror("open chat log");
         return;
     }
-    if (fchmod(fd, S_IRUSR | S_IWUSR) < 0) perror("set chat log permissions");
     FILE *file = fdopen(fd, "a");
     if (file == NULL) {
         perror("fdopen chat log");
@@ -428,3 +427,4 @@ int main(int argc, char **argv)
     usage(argv[0]);
     return EXIT_FAILURE;
 }
+

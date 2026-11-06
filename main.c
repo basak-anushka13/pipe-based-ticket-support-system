@@ -82,7 +82,7 @@ static int dequeue(SupportDesk *desk, int *id) {
 static void log_event(const Ticket *ticket, const char *event) {
     int fd = open(LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
     if (fd < 0) { perror("open ticket log"); return; }
-    (void)fchmod(fd, S_IRUSR | S_IWUSR);
+    /* Preserve the file's existing mode when it already exists; a new file gets 0600 by open(). */
     FILE *file = fdopen(fd, "a");
     if (!file) { perror("fdopen ticket log"); close(fd); return; }
     time_t now = time(NULL);
@@ -202,7 +202,6 @@ int main(void) {
     if (pipe(to_child) < 0 || pipe(to_parent) < 0) { perror("pipe"); return EXIT_FAILURE; }
     int log_fd = open(LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
     if (log_fd < 0) { perror("open ticket log"); return EXIT_FAILURE; }
-    (void)fchmod(log_fd, S_IRUSR | S_IWUSR);
     close(log_fd);
 
     struct sigaction action;
@@ -246,6 +245,7 @@ int main(void) {
     }
     close(to_child[1]); close(to_parent[0]);
     while (waitpid(child, NULL, 0) < 0 && errno == EINTR) {}
-    printf("Timestamped audit log: %s (owner-only permissions)\n", LOG_FILE);
+    printf("Timestamped audit log: %s (owner-only permissions for a new log file)\n", LOG_FILE);
     return EXIT_SUCCESS;
 }
+
