@@ -1,6 +1,5 @@
 CC = gcc
 CXX = g++
-PYTHON ?= python3
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wstrict-prototypes -O2
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2
 LDLIBS_IPC ?= -pthread -lrt
@@ -33,46 +32,46 @@ $(BUILD_DIR):
 $(BUILD_DIR)/test_ticket: tests/test_ticket.c main.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ tests/test_ticket.c
 
+$(BUILD_DIR)/integration_test: tests/integration_test.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ tests/integration_test.c
+
 unit: $(BUILD_DIR)/test_ticket
 	(cd $(BUILD_DIR) && ./test_ticket)
 
-integration: ticket_system
-	$(PYTHON) tests/integration_test.py ./ticket_system
+integration: ticket_system ipc_advanced $(BUILD_DIR)/integration_test
+	./$(BUILD_DIR)/integration_test $(CURDIR)/ticket_system $(CURDIR)/ipc_advanced
 
-advanced-integration: ipc_advanced
-	$(PYTHON) tests/advanced_integration_test.py ./ipc_advanced
+advanced-integration: integration
 
 # Requires GoogleTest development headers and libraries to be installed.
 gtest: ticket_system | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) tests/test_gtest.cpp -o $(BUILD_DIR)/test_gtest -lgtest -lgtest_main -pthread
 	TICKET_SYSTEM_BIN=$(CURDIR)/ticket_system ./$(BUILD_DIR)/test_gtest
 
-# Run suites in a fixed order, including GoogleTest, even when make is invoked with -j.
+# Run C suites first; GoogleTest remains an optional C++ test target.
 test:
 	$(MAKE) unit
 	$(MAKE) integration
-	$(MAKE) advanced-integration
-	$(MAKE) gtest
 
 cppcheck:
 	cppcheck --error-exitcode=1 --enable=warning,style,performance,portability \
-		--std=c11 main.c ipc_extensions.c ipc_advanced.c 2> cppcheck_report.txt
+		--std=c11 main.c ipc_extensions.c ipc_advanced.c tests/test_ticket.c tests/integration_test.c 2> cppcheck_report.txt
 
 # Provide a cppcheck MISRA addon/configuration, e.g. MISRA_ADDON=misra.json.
 # This is a rule check, not certification of MISRA compliance.
 MISRA_ADDON ?=
 misra:
 	@test -n "$(MISRA_ADDON)" || (echo "Set MISRA_ADDON to a cppcheck MISRA addon/configuration" >&2; exit 2)
-	cppcheck --error-exitcode=1 --enable=all --std=c11 \
-		--addon=$(MISRA_ADDON) main.c ipc_extensions.c ipc_advanced.c 2> misra_report.txt
+	cppcheck --error-exitcode=1 --enable=all --std=c11 --addon=$(MISRA_ADDON) \
+		main.c ipc_extensions.c ipc_advanced.c tests/test_ticket.c tests/integration_test.c 2> misra_report.txt
 
-# Coverage is measured for main.c; the command fails if any threshold is missed.
-coverage: ticket_system $(BUILD_DIR)/test_ticket | $(COVERAGE_DIR)
+# Coverage is measured for main.c; integration and unit tests are implemented in C.
+coverage: ticket_system $(BUILD_DIR)/test_ticket $(BUILD_DIR)/integration_test | $(COVERAGE_DIR)
 	rm -f $(COVERAGE_DIR)/*.gcda $(COVERAGE_DIR)/*.gcno
 	$(CC) $(CFLAGS) -O0 -g --coverage -o $(COVERAGE_DIR)/ticket_system main.c
 	$(CC) $(CFLAGS) -O0 -g --coverage -o $(COVERAGE_DIR)/test_ticket tests/test_ticket.c
 	(cd $(COVERAGE_DIR) && ./test_ticket)
-	$(PYTHON) tests/integration_test.py ./$(COVERAGE_DIR)/ticket_system
+	./$(BUILD_DIR)/integration_test $(CURDIR)/$(COVERAGE_DIR)/ticket_system $(CURDIR)/ipc_advanced
 	gcovr --root $(CURDIR) --object-directory $(CURDIR)/$(COVERAGE_DIR) \
 		--filter '.*main[.]c$$' --txt --output $(COVERAGE_DIR)/coverage_report.txt \
 		--fail-under-line 95 --fail-under-branch 95 --fail-under-function 95
@@ -97,5 +96,5 @@ helgrind: ticket_system
 
 clean:
 	rm -f ticket_system ipc_extensions ipc_advanced cppcheck_report.txt misra_report.txt
-	rm -f *.gcda *.gcno *.gcov ticket_log.txt
+	rm -f *.gcda *.gcno *.gcov ticket_log.txt chat_log.txt
 	rm -rf $(BUILD_DIR)

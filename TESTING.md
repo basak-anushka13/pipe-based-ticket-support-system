@@ -1,22 +1,25 @@
-# Linux testing and code-quality targets
+# Linux C testing and code-quality targets
 
-The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. The production application is C; GoogleTest tests the executable from a separate C++ test file.
+The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. The production programs and primary unit/integration tests are written in C. The optional GoogleTest target is a separate C++ test and is not included in `make test`.
 
 ## Build and demos
 
-`make` builds the ticket program and IPC demos. Install OpenSSL development headers/libraries for `ipc_advanced` (linked with `-lcrypto`). Run:
+`make` builds the ticket program and IPC demos. Install OpenSSL development headers/libraries for `ipc_advanced` (linked with `-lcrypto`).
 
-- `./ipc_advanced rooms ROOM_NAME` — named-FIFO parent/child room. Room names isolate FIFO paths; messages in both directions are encrypted and authenticated with AES-256-GCM. Enter the same room passphrase for the demo peers (the forked child inherits the derived key). The passphrase input is visible. This is a local educational demo, not a network chat or production key exchange.
+- `./ipc_advanced rooms ROOM_NAME` — named-FIFO parent/child room using AES-256-GCM authenticated messages.
 - `./ipc_advanced server` — three persistent child agents, addressed with `/send ID MESSAGE`.
 - `./ipc_advanced signal-chat` — pipe chat with SIGUSR1 response notifications.
 - `./ipc_advanced encrypt` — standalone AES-256-GCM round-trip demonstration.
 
+The chat demos append timestamped sent/received message text to `chat_log.txt`, with owner-only permissions. This log contains plaintext; the encrypted FIFO demo logs only after local encryption/decryption and does not record passphrases or ciphertext.
+
 ## Make targets
 
-- `make test` — run native C unit tests, core process integration tests, advanced IPC/encryption smoke tests, and GoogleTest integration tests in order. Install GoogleTest development files and OpenSSL development files first.
+- `make test` — run native C unit and integration tests. No Python or GoogleTest dependency is required.
+- `make gtest` — optional C++ GoogleTest executable test; requires GoogleTest development headers and libraries.
 - `make cppcheck` — static analysis.
 - `make misra MISRA_ADDON=...` — run a supplied cppcheck MISRA addon/configuration; this is not certification.
 - `make valgrind` / `make helgrind` — run memory/synchronization tooling on the core ticket process.
-- `make coverage` — measure core `main.c` coverage and enforce at least 95% line, branch, and function coverage. This remains a target threshold, not a measured result until run.
+- `make coverage` — measure core `main.c` coverage and enforce at least 95% line, branch, and function coverage. This is a configured threshold, not a measured result until the target is run.
 
-GoogleTest, OpenSSL, cppcheck, Valgrind, gcovr, and a MISRA addon are external Linux dependencies. Helgrind concerns thread synchronization; these examples communicate with processes, so Helgrind does not verify general IPC correctness.
+GoogleTest, OpenSSL, cppcheck, Valgrind, gcovr, and a MISRA addon are external Linux dependencies. Helgrind primarily checks thread synchronization; these examples communicate with processes.

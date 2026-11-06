@@ -1,12 +1,12 @@
 # Pipe-Based Customer Support Ticket System
 
-Educational Linux/POSIX C project demonstrating a ticket-support workflow with parent/child process communication. Ticket records use fixed-size arrays and a bounded FIFO queue; **no linked lists are used**.
+Educational Linux/POSIX C project demonstrating customer-support ticket handling and parent/child process communication. Ticket records use fixed-size arrays and a bounded FIFO queue; **no linked lists are used**.
 
 ## Core application
 
-The reception parent and support child exchange commands and replies over two anonymous pipes. The interactive application supports ticket creation, FIFO processing, status changes, a waiting list when the small queue fills, listing, statistics, timestamped audit logging, clean shutdown and Ctrl+C handling. The log file is restricted to owner read/write permissions (0600).
+The reception parent and support child exchange commands and replies over two anonymous pipes. Ticket data is stored in fixed-size arrays, requests are processed from a bounded FIFO queue, and ticket activity is written to a timestamped `ticket_log.txt` file with owner-only permissions.
 
-Build and run:
+Build and run on Linux or a POSIX-compatible environment:
 
 ```sh
 make
@@ -15,21 +15,21 @@ make
 
 Commands: `/new CUSTOMER|ISSUE|PRIORITY`, `/process`, `/queue`, `/list`, `/stats`, `/help`, `/quit`.
 
-## IPC demos
+## IPC demos and chat logging
 
-`make` builds `ipc_extensions` and `ipc_advanced`. Existing examples in `ipc_extensions` demonstrate one-message named-FIFO exchange, POSIX message queues, shared memory with semaphores, SIGUSR1 notification, and child workers. The interactive demos in `ipc_advanced` are:
+`make` builds C programs for the ticket system and Linux IPC demonstrations. The interactive chat demos append timestamped sent and received plaintext messages to `chat_log.txt` in the current working directory. The log is created with owner-only permissions (0600). For encrypted FIFO rooms, logging occurs after encryption/decryption at the local application boundary; passphrases and ciphertext are not logged.
 
 ```sh
-./ipc_advanced rooms       # persistent parent-child chat over two named FIFOs
-./ipc_advanced server      # three persistent child agents; use /send ID MESSAGE
-./ipc_advanced signal-chat # two anonymous pipes; SIGUSR1 signals each response
-./ipc_advanced encrypt     # AES-256-GCM with PBKDF2-derived key (OpenSSL)
+./ipc_advanced rooms [ROOM_NAME] # encrypted parent-child chat over named FIFOs
+./ipc_advanced server           # three child agents; use /send ID MESSAGE
+./ipc_advanced signal-chat      # two anonymous pipes and SIGUSR1 notifications
+./ipc_advanced encrypt          # AES-256-GCM encryption round-trip demonstration
 ```
 
-The encryption demo prompts for a passphrase visibly, encrypts and authenticates a message, prints the payload components in hex, then verifies/decrypts it. It is an educational demonstration, not a production key-management system.
+The encryption demo and room mode use OpenSSL; install the OpenSSL development package before building. Chat logs contain message contents, so keep the file private and remove it when no longer needed.
 
-## Tests and quality tools
+## Tests
 
-`make test` runs native C unit tests, the core parent/child integration test, the advanced IPC/encryption integration smoke tests, and GoogleTest integration tests in sequence. Install GoogleTest development files and OpenSSL development headers/libraries first. Other optional targets are `make cppcheck`, `make misra MISRA_ADDON=...`, `make valgrind`, `make helgrind`, and `make coverage`. Coverage target thresholds are configured to 95% line/branch/function coverage of `main.c`; the percentage is only established when the target is actually run successfully.
+`make test` runs the unit test and end-to-end integration checks implemented in C. The C integration checks exercise ticket creation/processing and the FIFO-room, worker-server, and signal-chat examples, including verification of both directions of chat logging. The optional `make gtest` target remains separate and uses the existing C++ GoogleTest test.
 
-See `TESTING.md` for dependencies and limitations. The application uses Linux/POSIX APIs and is intended for Linux (or a POSIX-compatible environment such as WSL), not native Windows.
+The project targets Linux/POSIX, not native Windows. Tests and IPC demos require a working POSIX environment; the advanced executable also requires OpenSSL.

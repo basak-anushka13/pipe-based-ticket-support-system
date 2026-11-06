@@ -1,5 +1,7 @@
 ticket_system
 ipc_extensions
+ipc_advanced
+chat_log.txt
 ticket_log.txt
 *.o
 .vscode/

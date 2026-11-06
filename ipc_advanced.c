@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #define TEXT_SIZE 256
@@ -21,6 +22,7 @@
 #define TAG_SIZE 16
 #define PBKDF2_ROUNDS 200000
 #define ROOM_NAME_SIZE 33
+#define CHAT_LOG_FILE "chat_log.txt"
 
 typedef struct { char text[TEXT_SIZE]; } Message;
 typedef struct {
@@ -29,6 +31,30 @@ typedef struct {
     unsigned char tag[TAG_SIZE];
     unsigned char ciphertext[TEXT_SIZE];
 } SecureMessage;
+
+/* Log plaintext at the application boundary, not encrypted payload bytes. */
+static void log_chat_message(const char *channel, const char *direction, const char *text)
+{
+    int fd = open(CHAT_LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        perror("open chat log");
+        return;
+    }
+    if (fchmod(fd, S_IRUSR | S_IWUSR) < 0) perror("set chat log permissions");
+    FILE *file = fdopen(fd, "a");
+    if (file == NULL) {
+        perror("fdopen chat log");
+        (void)close(fd);
+        return;
+    }
+    time_t now = time(NULL);
+    struct tm local_time;
+    char timestamp[32] = "unknown-time";
+    if (localtime_r(&now, &local_time) != NULL)
+        (void)strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &local_time);
+    (void)fprintf(file, "[%s] channel=%s %s: %s\n", timestamp, channel, direction, text);
+    if (fclose(file) != 0) perror("write chat log");
+}
 
 static int read_full(int fd, void *buffer, size_t length)
 {
@@ -201,7 +227,7 @@ static int demo_rooms(const char *room)
         result = 1;
         goto cleanup;
     }
-    printf("Encrypted FIFO room '%s'. Type /quit to leave.\n", room);
+    printf("Encrypted FIFO room '%s'. Type /quit to leave. Chat log: %s\n", room, CHAT_LOG_FILE);
     for (;;) {
         char plaintext[TEXT_SIZE], reply[TEXT_SIZE];
         SecureMessage request = {0}, response = {0};
@@ -209,13 +235,19 @@ static int demo_rooms(const char *room)
         (void)fflush(stdout);
         if (!read_line(plaintext, sizeof(plaintext))) break;
         if (encrypt_message(key, plaintext, &request) < 0 ||
-            write_full(write_fd, &request, sizeof(request)) < 0 ||
-            read_full(read_fd, &response, sizeof(response)) != 1 ||
-            decrypt_message(key, &response, reply) < 0) {
-            fprintf(stderr, "Encrypted room exchange failed (invalid tag or FIFO I/O error).\n");
+            write_full(write_fd, &request, sizeof(request)) < 0) {
+            fprintf(stderr, "Encrypted room request failed.\n");
             result = 1;
             break;
         }
+        log_chat_message("fifo-room", "parent-to-child", plaintext);
+        if (read_full(read_fd, &response, sizeof(response)) != 1 ||
+            decrypt_message(key, &response, reply) < 0) {
+            fprintf(stderr, "Encrypted room response failed (invalid tag or FIFO I/O error).\n");
+            result = 1;
+            break;
+        }
+        log_chat_message("fifo-room", "child-to-parent", reply);
         puts(reply);
         if (strcmp(plaintext, "/quit") == 0) break;
     }
@@ -265,7 +297,7 @@ static int demo_server(void)
         }
     }
     for (int i = 0; i < CHAT_WORKERS; ++i) { (void)close(requests[i][0]); (void)close(responses[i][1]); }
-    puts("Multi-child support chat. Use /send 1..3 MESSAGE or /quit.");
+    puts("Multi-child support chat. Use /send 1..3 MESSAGE or /quit. Chat log: " CHAT_LOG_FILE);
     int result = 0;
     char line[TEXT_SIZE];
     for (;;) {
@@ -279,10 +311,14 @@ static int demo_server(void)
         }
         Message request = {{0}}, reply = {{0}};
         (void)snprintf(request.text, sizeof(request.text), "%s", text);
-        if (write_full(requests[worker - 1][1], &request, sizeof(request)) < 0 ||
-            read_full(responses[worker - 1][0], &reply, sizeof(reply)) != 1) {
-            perror("worker communication"); result = 1; break;
+        if (write_full(requests[worker - 1][1], &request, sizeof(request)) < 0) {
+            perror("worker request"); result = 1; break;
         }
+        log_chat_message("worker-server", "parent-to-child", request.text);
+        if (read_full(responses[worker - 1][0], &reply, sizeof(reply)) != 1) {
+            perror("worker response"); result = 1; break;
+        }
+        log_chat_message("worker-server", "child-to-parent", reply.text);
         puts(reply.text);
     }
     for (int i = 0; i < CHAT_WORKERS; ++i) {
@@ -319,7 +355,7 @@ static int demo_signal_chat(void)
         _exit(EXIT_SUCCESS);
     }
     (void)close(request_pipe[0]); (void)close(response_pipe[1]);
-    puts("Signal-controlled pipe chat. Type /quit to leave.");
+    puts("Signal-controlled pipe chat. Type /quit to leave. Chat log: " CHAT_LOG_FILE);
     int result = 0;
     char line[TEXT_SIZE];
     for (;;) {
@@ -328,11 +364,13 @@ static int demo_signal_chat(void)
         Message request = {{0}}, reply = {{0}};
         (void)snprintf(request.text, sizeof(request.text), "%s", line);
         if (write_full(request_pipe[1], &request, sizeof(request)) < 0) { result = 1; break; }
+        log_chat_message("signal-chat", "parent-to-child", request.text);
         int received = 0;
         if (sigwait(&signal_set, &received) != 0 || received != SIGUSR1 ||
             read_full(response_pipe[0], &reply, sizeof(reply)) != 1) {
             fprintf(stderr, "signal chat response failed\n"); result = 1; break;
         }
+        log_chat_message("signal-chat", "child-to-parent", reply.text);
         puts(reply.text);
         if (strcmp(line, "/quit") == 0) break;
     }
