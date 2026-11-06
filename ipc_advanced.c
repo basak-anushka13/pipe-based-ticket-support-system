@@ -32,9 +32,27 @@ typedef struct {
     unsigned char ciphertext[TEXT_SIZE];
 } SecureMessage;
 
+static void open_chat_log_preserved(const char *path, int *fd_out)
+{
+    struct stat info;
+    int existed = stat(path, &info) == 0;
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        *fd_out = -1;
+        return;
+    }
+    if (existed) {
+        if (fchmod(fd, info.st_mode & 0777) != 0) perror("preserve chat log permissions");
+    } else if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+        perror("set new chat log permissions");
+    }
+    *fd_out = fd;
+}
+
 static void log_chat_message(const char *channel, const char *direction, const char *text)
 {
-    int fd = open(CHAT_LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    int fd = -1;
+    open_chat_log_preserved(CHAT_LOG_FILE, &fd);
     if (fd < 0) {
         perror("open chat log");
         return;

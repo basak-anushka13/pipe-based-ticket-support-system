@@ -42,6 +42,23 @@ static volatile sig_atomic_t interrupted = 0;
 
 static void on_sigint(int signo) { (void)signo; interrupted = 1; }
 
+static void open_log_file_preserved(const char *path, int *fd_out)
+{
+    struct stat info;
+    int existed = stat(path, &info) == 0;
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        *fd_out = -1;
+        return;
+    }
+    if (existed) {
+        if (fchmod(fd, info.st_mode & 0777) != 0) perror("preserve ticket log permissions");
+    } else if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+        perror("set new ticket log permissions");
+    }
+    *fd_out = fd;
+}
+
 static int read_full(int fd, void *buffer, size_t length) {
     size_t done = 0;
     while (done < length) {
@@ -80,9 +97,9 @@ static int dequeue(SupportDesk *desk, int *id) {
 }
 
 static void log_event(const Ticket *ticket, const char *event) {
-    int fd = open(LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    int fd = -1;
+    open_log_file_preserved(LOG_FILE, &fd);
     if (fd < 0) { perror("open ticket log"); return; }
-    /* Preserve the file's existing mode when it already exists; a new file gets 0600 by open(). */
     FILE *file = fdopen(fd, "a");
     if (!file) { perror("fdopen ticket log"); close(fd); return; }
     time_t now = time(NULL);
@@ -200,7 +217,8 @@ static void child_service(int request_fd, int response_fd) {
 int main(void) {
     int to_child[2], to_parent[2];
     if (pipe(to_child) < 0 || pipe(to_parent) < 0) { perror("pipe"); return EXIT_FAILURE; }
-    int log_fd = open(LOG_FILE, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+    int log_fd = -1;
+    open_log_file_preserved(LOG_FILE, &log_fd);
     if (log_fd < 0) { perror("open ticket log"); return EXIT_FAILURE; }
     close(log_fd);
 
@@ -245,7 +263,7 @@ int main(void) {
     }
     close(to_child[1]); close(to_parent[0]);
     while (waitpid(child, NULL, 0) < 0 && errno == EINTR) {}
-    printf("Timestamped audit log: %s (owner-only permissions for a new log file)\n", LOG_FILE);
+    printf("Timestamped audit log: %s (existing permissions preserved; new logs are owner-only)\n", LOG_FILE);
     return EXIT_SUCCESS;
 }
 

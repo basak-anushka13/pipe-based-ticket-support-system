@@ -73,17 +73,33 @@ static void test_log_permission_preservation(void)
 {
     const char *log_path = LOG_FILE;
     (void)unlink(log_path);
-    int fd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+
+    int fd = -1;
+    open_log_file_preserved(log_path, &fd);
     CHECK(fd >= 0);
-    CHECK(fchmod(fd, 0640) == 0);
-    if (fd >= 0) close(fd);
+    if (fd >= 0) {
+        struct stat info;
+        CHECK(fstat(fd, &info) == 0);
+        CHECK((info.st_mode & 0777) == 0600);
+        close(fd);
+    }
+    (void)unlink(log_path);
 
-    Ticket ticket = { .id = 99, .priority = 2, .customer = "Perm", .issue = "check", .status = "Queued" };
-    log_event(&ticket, "permission-preservation check");
+    fd = open(log_path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+    CHECK(fd >= 0);
+    if (fd >= 0) {
+        CHECK(fchmod(fd, 0640) == 0);
+        close(fd);
+    }
 
-    struct stat info;
-    CHECK(stat(log_path, &info) == 0);
-    CHECK((info.st_mode & 0777) == 0640);
+    open_log_file_preserved(log_path, &fd);
+    CHECK(fd >= 0);
+    if (fd >= 0) {
+        struct stat info;
+        CHECK(fstat(fd, &info) == 0);
+        CHECK((info.st_mode & 0777) == 0640);
+        close(fd);
+    }
     (void)unlink(log_path);
 }
 
