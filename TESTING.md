@@ -1,6 +1,6 @@
 # Linux C testing and code-quality targets
 
-The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. The production programs and primary unit/integration tests are written in C. The optional GoogleTest target is a separate C++ test and is not included in `make test`.
+The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. Production programs and unit/integration tests are written in C; the existing optional GoogleTest integration test remains C++.
 
 ## Build and demos
 
@@ -15,8 +15,8 @@ The chat demos append timestamped sent/received message text to `chat_log.txt`, 
 
 ## Make targets
 
-- `make test` — run native C unit and integration tests. No Python or GoogleTest dependency is required.
-- `make gtest` — optional C++ GoogleTest executable test; requires GoogleTest development headers and libraries.
+- `make test` — run the C unit tests, C integration tests, and GoogleTest integration tests in order. Python is not used by the build or test targets.
+- `make gtest` — build and run the existing C++ GoogleTest executable test; requires GoogleTest development headers and libraries.
 - `make cppcheck` — static analysis.
 - `make misra MISRA_ADDON=...` — run a supplied cppcheck MISRA addon/configuration; this is not certification.
 - `make valgrind` / `make helgrind` — run memory/synchronization tooling on the core ticket process.

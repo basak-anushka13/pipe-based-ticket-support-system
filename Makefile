@@ -48,10 +48,11 @@ gtest: ticket_system | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) tests/test_gtest.cpp -o $(BUILD_DIR)/test_gtest -lgtest -lgtest_main -pthread
 	TICKET_SYSTEM_BIN=$(CURDIR)/ticket_system ./$(BUILD_DIR)/test_gtest
 
-# Run C suites first; GoogleTest remains an optional C++ test target.
+# Run the C unit and integration suites, then the existing optional C++/GoogleTest suite.
 test:
 	$(MAKE) unit
 	$(MAKE) integration
+	$(MAKE) gtest
 
 cppcheck:
 	cppcheck --error-exitcode=1 --enable=warning,style,performance,portability \

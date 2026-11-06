@@ -30,6 +30,6 @@ The encryption demo and room mode use OpenSSL; install the OpenSSL development p
 
 ## Tests
 
-`make test` runs the unit test and end-to-end integration checks implemented in C. The C integration checks exercise ticket creation/processing and the FIFO-room, worker-server, and signal-chat examples, including verification of both directions of chat logging. The optional `make gtest` target remains separate and uses the existing C++ GoogleTest test.
+`make test` runs the C unit tests, C integration tests, and existing GoogleTest integration test in sequence. The unit and integration checks are implemented in C; GoogleTest remains the existing C++ test target and requires its development headers and libraries. The integration tests cover ticket processing and the FIFO-room, worker-server, and signal-chat examples, including both directions of chat logging.
 
 The project targets Linux/POSIX, not native Windows. Tests and IPC demos require a working POSIX environment; the advanced executable also requires OpenSSL.
