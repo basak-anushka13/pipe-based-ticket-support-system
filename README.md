@@ -1,10 +1,10 @@
 # Pipe-Based Customer Support Ticket System
 
-Educational Linux/POSIX C project demonstrating customer-support ticket handling and parent/child process communication. Ticket records use fixed-size arrays and a bounded FIFO queue; **no linked lists are used**.
+Educational Linux/POSIX C project demonstrating customer-support ticket handling and parent/child process communication. Ticket records use fixed-size arrays and a bounded FIFO queue; **no linked lists are used**. The program includes timestamped audit logging and a small FIFO-style ticket queue for processing.
 
 ## Core application
 
-The reception parent and support child exchange commands and replies over two anonymous pipes. Ticket data is stored in fixed-size arrays, requests are processed from a bounded FIFO queue, and ticket activity is written to a timestamped `ticket_log.txt` file with owner-only permissions.
+The reception parent and support child exchange commands and replies over two anonymous pipes. Ticket data is stored in fixed-size arrays, requests are processed from a bounded FIFO queue, and ticket activity is written to a timestamped log file.
 
 Build and run on Linux or a POSIX-compatible environment:
 
@@ -17,7 +17,7 @@ Commands: `/new CUSTOMER|ISSUE|PRIORITY`, `/process`, `/queue`, `/list`, `/stats
 
 ## IPC demos and chat logging
 
-`make` builds C programs for the ticket system and Linux IPC demonstrations. The interactive chat demos append timestamped sent and received plaintext messages to `chat_log.txt` in the current working directory. The log is created with owner-only permissions (0600). For encrypted FIFO rooms, logging occurs after encryption/decryption at the local application boundary; passphrases and ciphertext are not logged.
+`make` builds C programs for the ticket system and Linux IPC demonstrations. The interactive chat demos append timestamped sent and received plaintext messages to `chat_log.txt` in the current working directory. Newly created log files use owner-only permissions, while existing logs keep their current file mode instead of being forced to a different permission set.
 
 ```sh
 ./ipc_advanced rooms [ROOM_NAME] # encrypted parent-child chat over named FIFOs
@@ -30,6 +30,6 @@ The encryption demo and room mode use OpenSSL; install the OpenSSL development p
 
 ## Tests
 
-`make test` runs the C unit tests, C integration tests, and the existing GoogleTest integration test in sequence. The unit and integration checks are implemented in C; GoogleTest remains the separate C++ target and requires its development headers and libraries. The integration tests cover ticket processing and the FIFO-room, worker-server, and signal-chat examples, including both directions of chat logging.
+`make test` runs the C unit tests, C integration tests, and the existing GoogleTest integration test in sequence. The unit and integration checks are implemented in C; GoogleTest remains the separate C++ layer.
 
 The project targets Linux/POSIX, not native Windows. Tests and IPC demos require a working POSIX environment; the advanced executable also requires OpenSSL.

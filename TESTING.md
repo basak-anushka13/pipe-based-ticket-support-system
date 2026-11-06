@@ -1,6 +1,6 @@
 # Linux C testing and code-quality targets
 
-The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. Production programs and unit/integration tests are written in C; the existing optional GoogleTest integration test remains C++.
+The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounded FIFO queue—**no linked lists are used**. Production programs and unit/integration tests are written in C; the existing C++/GoogleTest integration test remains separate.
 
 ## Build and demos
 
@@ -11,7 +11,7 @@ The project targets Linux/POSIX. Ticket data uses fixed-size arrays and a bounde
 - `./ipc_advanced signal-chat` — pipe chat with SIGUSR1 response notifications.
 - `./ipc_advanced encrypt` — standalone AES-256-GCM round-trip demonstration.
 
-The chat demos append timestamped sent/received message text to `chat_log.txt`, with owner-only permissions. This log contains plaintext; the encrypted FIFO demo logs only after local encryption/decryption and does not record passphrases or ciphertext.
+The chat demos append timestamped sent/received message text to `chat_log.txt`. Newly created log files use owner-only permissions; if the log already exists, its existing permission bits are preserved instead of being reset. This log contains plaintext; the encrypted FIFO demo logs only after local encryption/decryption of the message payload.
 
 ## Make targets
 
